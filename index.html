@@ -1,0 +1,387 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://fonts.googleapis.com https://fonts.gstatic.com">
+<title>数据搜索工具</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #f0f4f8; font-family: 'Nunito', 'Segoe UI', system-ui, sans-serif; font-size: 13px; }
+
+.topbar { background: #0277bd; color: #fff; padding: 11px 18px; display: flex; align-items: center; gap: 10px; }
+.topbar h1 { font-size: 17px; font-weight: 800; letter-spacing: 0.01em; }
+.topbar span { font-size: 12px; font-weight: 500; margin-left: auto; opacity: 0.85; }
+
+.filter-bar {
+  background: #fff;
+  border-bottom: 2.5px solid #0277bd;
+  padding: 12px 18px;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+  position: sticky; top: 0; z-index: 200;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.09);
+}
+.fg { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 150px; }
+.fg label { font-size: 10.5px; font-weight: 800; color: #0277bd; text-transform: uppercase; letter-spacing: 0.08em; }
+.fg input {
+  border: 1.5px solid #c5d8e8; border-radius: 10px;
+  padding: 6px 12px; font-size: 13px; color: #222;
+  background: #f5faff; outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit; font-weight: 600;
+}
+.fg input:focus { border-color: #0277bd; box-shadow: 0 0 0 3px rgba(2,119,189,0.13); background: #fff; }
+.fg input::placeholder { font-weight: 400; color: #aac4d8; }
+.btn-clear {
+  background: #e1f5fe; border: 1.5px solid #81d4fa; border-radius: 10px;
+  padding: 6px 16px; font-size: 12.5px; color: #01579b;
+  cursor: pointer; font-weight: 700; align-self: flex-end;
+  transition: background 0.15s; font-family: inherit;
+}
+.btn-clear:hover { background: #b3e5fc; }
+
+.upload-bar {
+  background: #f7f9fc; border-bottom: 1px solid #dde3ea;
+  padding: 9px 18px; display: flex; align-items: center; gap: 12px;
+}
+.upload-label {
+  background: #0277bd; color: #fff; border: none; border-radius: 10px;
+  padding: 6px 16px; font-size: 12.5px; font-weight: 700;
+  cursor: pointer; font-family: inherit; display: inline-flex;
+  align-items: center; gap: 6px; transition: background 0.15s;
+}
+.upload-label:hover { background: #01579b; }
+#fileInput { display: none; }
+.upload-hint { font-size: 11.5px; color: #9ab; font-weight: 600; }
+.upload-name { font-size: 12.5px; color: #0277bd; font-weight: 700; }
+.stats { margin-left: auto; font-size: 12px; color: #667; font-weight: 600; }
+.stats strong { color: #111; font-weight: 800; }
+
+.tbl-outer { overflow: auto; max-height: calc(100vh - 165px); border-top: 1px solid #ccd6e0; }
+table { border-collapse: collapse; font-size: 12.5px; min-width: 100%; background: #fff; }
+thead tr th {
+  background: #0277bd; color: #fff; font-weight: 800;
+  padding: 8px 11px; border: 1px solid #01579b;
+  white-space: nowrap; position: sticky; top: 0; z-index: 10;
+  text-align: left; font-size: 12px; letter-spacing: 0.03em;
+  cursor: pointer; user-select: none; font-family: inherit;
+}
+thead tr th:hover { background: #01579b; }
+th.rn, td.rn {
+  background: #e1f5fe !important; color: #5580a0 !important;
+  font-size: 11px; text-align: center; min-width: 36px; max-width: 36px;
+  border-color: #b3e5fc !important; font-weight: 600 !important; cursor: default !important;
+}
+th.rn { background: #b3e5fc !important; color: #01579b !important; font-weight: 800 !important; }
+tbody tr td {
+  padding: 6px 11px; border: 1px solid #d0dce8; color: #2a3a4a;
+  vertical-align: middle; white-space: nowrap;
+  max-width: 220px; overflow: hidden; text-overflow: ellipsis; font-weight: 500;
+}
+tbody tr:nth-child(even) td { background: #f0f8ff; }
+tbody tr:nth-child(odd) td { background: #fff; }
+tbody tr:hover td { background: #dff0fb !important; }
+tbody tr.selected td { background: #b3e5fc !important; }
+
+.c-asin { font-family: 'Courier New', monospace; font-size: 11.5px; color: #0d47a1; font-weight: 700; }
+.c-link a { color: #0277bd; text-decoration: underline; font-size: 12px; font-weight: 700; }
+.c-link a:hover { color: #01579b; }
+.c-img img { width: 36px; height: 36px; object-fit: cover; border: 1px solid #dde8f0; border-radius: 5px; vertical-align: middle; }
+.c-img .noimg { width: 36px; height: 36px; background: #eef4fb; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; color: #aac; border: 1px solid #dde3ea; border-radius: 5px; }
+.c-pt { background: #e0f7fa; color: #006064; padding: 2px 10px; border-radius: 12px; font-size: 11.5px; font-weight: 700; border: 1px solid #80deea; display: inline-block; }
+.c-kw { color: #5c35a0; font-size: 12.5px; font-weight: 600; }
+.empty-row td { text-align: center; padding: 44px; color: #b0c4d4; font-size: 13.5px; font-weight: 600; background: #fff !important; border: 1px solid #e4edf5; }
+
+.pager { background: #f7f9fc; border-top: 1px solid #dde3ea; padding: 8px 18px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.pg-btn { border: 1.5px solid #c5d8e8; background: #fff; border-radius: 8px; padding: 4px 12px; font-size: 12.5px; color: #334; cursor: pointer; font-family: inherit; font-weight: 700; transition: all 0.12s; }
+.pg-btn:hover { background: #e1f5fe; border-color: #0277bd; color: #0277bd; }
+.pg-btn.active { background: #0277bd; border-color: #0277bd; color: #fff; }
+.pg-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.pg-info { font-size: 12px; color: #99aabb; margin-left: 8px; font-weight: 600; }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #0277bd; color: #fff; padding: 10px 24px; border-radius: 20px;
+  font-weight: 700; font-size: 13px; box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 9999;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+    <rect width="22" height="22" rx="6" fill="rgba(255,255,255,0.2)"/>
+    <circle cx="9.5" cy="9.5" r="4" stroke="white" stroke-width="1.8" fill="none"/>
+    <line x1="13" y1="13" x2="18" y2="18" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  </svg>
+  <h1>数据搜索工具</h1>
+  <span id="headerCount">共 0 条记录</span>
+</div>
+
+<div class="filter-bar">
+  <div class="fg">
+    <label>   Keywords</label>
+    <input type="text" id="fKw" placeholder="搜索关键词..." oninput="applyFilters()">
+  </div>
+  <div class="fg">
+    <label>   ASIN</label>
+    <input type="text" id="fAsin" placeholder="输入 ASIN..." oninput="applyFilters()">
+  </div>
+  <div class="fg">
+    <label>  ️ PT (Product Type)</label>
+    <input type="text" id="fPt" placeholder="输入 PT 类型..." oninput="applyFilters()">
+  </div>
+  <button class="btn-clear" onclick="clearFilters()">✕ 清除</button>
+</div>
+
+<div class="upload-bar">
+  <label class="upload-label" for="fileInput">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M7 1v8M4 4l3-3 3 3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M1 11h12" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+    上传文件
+  </label>
+  <input type="file" id="fileInput" accept=".csv,.tsv,.json">
+  <span class="upload-hint">支持 CSV / TSV / JSON</span>
+  <span class="upload-name" id="uploadName"></span>
+  <div class="stats">
+    显示 <strong id="showCount">0</strong> / <strong id="totalCount">0</strong> 条
+    &nbsp;|&nbsp; 第 <strong id="pgCur">—</strong> / <strong id="pgTotal">—</strong> 页
+  </div>
+</div>
+
+<div class="tbl-outer" id="tblOuter">
+  <table>
+    <thead>
+      <tr>
+        <th class="rn">#</th>
+        <th onclick="sortBy('img_url')">图片</th>
+        <th onclick="sortBy('asin')">ASIN ⇅</th>
+        <th onclick="sortBy('title')">Title ⇅</th>
+        <th onclick="sortBy('keywords')">Keywords ⇅</th>
+        <th onclick="sortBy('product_type')">PT ⇅</th>
+        <th onclick="sortBy('question')">Question ⇅</th>
+        <th onclick="sortBy('ri_comment')">RI Comment ⇅</th>
+        <th onclick="sortBy('comment')">Comment ⇅</th>
+        <th onclick="sortBy('create_user')">Create User ⇅</th>
+        <th onclick="sortBy('tt_link')">TT Link</th>
+        <th onclick="sortBy('pt_qrd_link')">PT QRD Link</th>
+      </tr>
+    </thead>
+    <tbody id="tblBody">
+      <tr class="empty-row"><td colspan="12">⬆ 请点击「上传文件」按钮加载 CSV / JSON / TSV 数据</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="pager" id="pager"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function() {
+  var allData = [], filteredData = [], currentPage = 1;
+  var PAGE = 50, sortCol = '', sortAsc = true;
+
+  // ── File input binding ──
+  var fi = document.getElementById('fileInput');
+  fi.addEventListener('change', function(e) {
+    var file = e.target.files && e.target.files;
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev) {
+      try {
+        var txt = ev.target.result;
+        var ext = file.name.split('.').pop().toLowerCase();
+        if (ext === 'json') {
+          allData = JSON.parse(txt);
+          if (!Array.isArray(allData)) allData = [allData];
+        } else {
+          var sep = ext === 'tsv' ? '\t' : ',';
+          allData = parseDelimited(txt, sep);
+        }
+        document.getElementById('uploadName').textContent = '✓ ' + file.name;
+        applyFilters();
+        showToast('✓ 已加载 ' + allData.length + ' 条数据');
+      } catch(err) {
+        showToast('❌ 解析失败: ' + err.message);
+      }
+    };
+    reader.onerror = function() { showToast('❌ 文件读取失败，请重试'); };
+    reader.readAsText(file, 'UTF-8');
+    // reset so same file can be re-uploaded
+    fi.value = '';
+  });
+
+  function parseDelimited(txt, sep) {
+    var lines = txt.split(/\r?\n/).filter(function(l){ return l.trim(); });
+    if (lines.length < 2) return [];
+    var hdrs = parseLine(lines, sep).map(function(h){ return h.trim().toLowerCase().replace(/\s+/g,'_'); });
+    return lines.slice(1).map(function(line) {
+      var vals = parseLine(line, sep);
+      var obj = {};
+      hdrs.forEach(function(h,i){ obj[h] = (vals[i]||'').trim(); });
+      return obj;
+    });
+  }
+
+  function parseLine(line, sep) {
+    var res = [], cur = '', inQ = false;
+    for (var i = 0; i < line.length; i++) {
+      var c = line[i];
+      if (c === '"') {
+        if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (c === sep && !inQ) { res.push(cur); cur = ''; }
+      else cur += c;
+    }
+    res.push(cur);
+    return res;
+  }
+
+  window.applyFilters = function() {
+    var kw   = document.getElementById('fKw').value.trim().toLowerCase();
+    var asin = document.getElementById('fAsin').value.trim().toLowerCase();
+    var pt   = document.getElementById('fPt').value.trim().toLowerCase();
+    filteredData = allData.filter(function(r) {
+      if (kw   && !(r.keywords||'').toLowerCase().includes(kw))   return false;
+      if (asin && !(r.asin||'').toLowerCase().includes(asin))      return false;
+      if (pt   && !(r.product_type||r.pt||'').toLowerCase().includes(pt)) return false;
+      return true;
+    });
+    if (sortCol) doSort();
+    currentPage = 1;
+    render();
+  };
+
+  window.clearFilters = function() {
+    document.getElementById('fKw').value = '';
+    document.getElementById('fAsin').value = '';
+    document.getElementById('fPt').value = '';
+    applyFilters();
+  };
+
+  window.sortBy = function(col) {
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = true; }
+    doSort(); currentPage = 1; render();
+  };
+
+  function doSort() {
+    filteredData.sort(function(a,b) {
+      var va = (a[sortCol]||'').toLowerCase();
+      var vb = (b[sortCol]||'').toLowerCase();
+      return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+  }
+
+  function render() {
+    var total = filteredData.length;
+    var pages = Math.max(1, Math.ceil(total / PAGE));
+    if (currentPage > pages) currentPage = pages;
+    var start = (currentPage-1)*PAGE;
+    var slice = filteredData.slice(start, start+PAGE);
+
+    document.getElementById('totalCount').textContent = allData.length;
+    document.getElementById('showCount').textContent = total;
+    document.getElementById('pgCur').textContent = pages > 0 ? currentPage : '—';
+    document.getElementById('pgTotal').textContent = pages > 0 ? pages : '—';
+    document.getElementById('headerCount').textContent = '共 ' + allData.length + ' 条记录';
+
+    var tbody = document.getElementById('tblBody');
+    if (slice.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="12">未找到匹配数据，请调整筛选条件</td></tr>';
+      renderPager(pages); return;
+    }
+
+    var rows = '';
+    for (var i = 0; i < slice.length; i++) {
+      var row = slice[i];
+      var n   = start + i + 1;
+      var img = row.img_url||'';
+      var asin= row.asin||'';
+      var ttl = row.title||'';
+      var kw  = row.keywords||'';
+      var pt  = row.product_type||row.pt||'';
+      var q   = row.question||'';
+      var ri  = row.ri_comment||'';
+      var cm  = row.comment||'';
+      var cu  = row.create_user||'';
+      var tt  = row.tt_link||'';
+      var pq  = row.pt_qrd_link||'';
+
+      var imgCell = img
+        ? '<div class="c-img"><img src="'+x(img)+'" alt="" onerror="this.parentNode.innerHTML=\'<div class=noimg>N/A</div>\'"></div>'
+        : '<div class="c-img"><div class="noimg">N/A</div></div>';
+      var ttCell = tt ? '<div class="c-link"><a href="'+x(tt)+'" target="_blank">   链接</a></div>' : '';
+      var pqCell = pq ? '<div class="c-link"><a href="'+x(pq)+'" target="_blank">   链接</a></div>' : '';
+
+      rows += '<tr onclick="selRow(this)">'
+        + '<td class="rn">'+n+'</td>'
+        + '<td>'+imgCell+'</td>'
+        + '<td class="c-asin" title="'+x(asin)+'">'+x(asin)+'</td>'
+        + '<td title="'+x(ttl)+'">'+x(ttl)+'</td>'
+        + '<td class="c-kw" title="'+x(kw)+'">'+x(kw)+'</td>'
+        + '<td>'+(pt?'<span class="c-pt">'+x(pt)+'</span>':'')+'</td>'
+        + '<td title="'+x(q)+'">'+x(q)+'</td>'
+        + '<td title="'+x(ri)+'">'+x(ri)+'</td>'
+        + '<td title="'+x(cm)+'">'+x(cm)+'</td>'
+        + '<td title="'+x(cu)+'">'+x(cu)+'</td>'
+        + '<td>'+ttCell+'</td>'
+        + '<td>'+pqCell+'</td>'
+        + '</tr>';
+    }
+    tbody.innerHTML = rows;
+    renderPager(pages);
+  }
+
+  window.selRow = function(tr) {
+    var prev = document.querySelectorAll('#tblBody tr.selected');
+    for (var i=0;i<prev.length;i++) prev[i].classList.remove('selected');
+    tr.classList.add('selected');
+  };
+
+  function renderPager(pages) {
+    var pg = document.getElementById('pager');
+    if (pages <= 1) { pg.innerHTML = ''; return; }
+    var h = '<button class="pg-btn" onclick="goPage('+(currentPage-1)+')" '+(currentPage===1?'disabled':'')+'>‹ 上一页</button>';
+    var range = [];
+    for (var i=1;i<=pages;i++) {
+      if (i===1||i===pages||(i>=currentPage-2&&i<=currentPage+2)) range.push(i);
+      else if (range[range.length-1]!=='…') range.push('…');
+    }
+    for (var j=0;j<range.length;j++) {
+      var p = range[j];
+      if (p==='…') h+='<span style="padding:0 5px;color:#b0c4d4;font-weight:700">…</span>';
+      else h+='<button class="pg-btn '+(p===currentPage?'active':'')+'" onclick="goPage('+p+')">'+p+'</button>';
+    }
+    h+='<button class="pg-btn" onclick="goPage('+(currentPage+1)+')" '+(currentPage===pages?'disabled':'')+'>下一页 ›</button>';
+    h+='<span class="pg-info">每页 '+PAGE+' 条</span>';
+    pg.innerHTML = h;
+  }
+
+  window.goPage = function(p) {
+    var pages = Math.ceil(filteredData.length/PAGE);
+    if (p<1||p>pages) return;
+    currentPage = p; render();
+    document.getElementById('tblOuter').scrollTop = 0;
+  };
+
+  function x(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function showToast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function(){ t.classList.remove('show'); }, 3000);
+  }
+})();
+</script>
+</body>
+</html>
